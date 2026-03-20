@@ -47,6 +47,18 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
 // 静态文件服务
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// 健康检查接口
+app.get('/', (_req: express.Request, res: express.Response) => {
+  res.json({
+    code: 200,
+    message: 'Blog Backend API is running',
+    data: {
+      version: '1.0.0',
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api', categoryRoutes);
