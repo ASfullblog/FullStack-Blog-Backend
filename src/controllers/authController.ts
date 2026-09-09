@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { authService } from '../services/authService';
 
 /**
@@ -81,6 +82,91 @@ export class AuthController {
     }
   }
 
+  /**
+   * 验证Token
+   * 功能：验证JWT令牌是否有效，返回用户信息
+   * @param req 请求对象
+   * @param res 响应对象
+   */
+  async verifyToken(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      // 从请求头获取 token
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        res.status(401).json({
+          code: 401,
+          message: 'Authorization header is required',
+          data: null
+        });
+        return;
+      }
+
+      // 提取 token
+      const token = authHeader.split(' ')[1];
+      if (!token) {
+        res.status(401).json({
+          code: 401,
+          message: 'Token is required',
+          data: null
+        });
+        return;
+      }
+
+      // 验证 token
+      const secret = process.env.JWT_SECRET || 'your-secret-key';
+      const decoded = jwt.verify(token, secret) as {
+        id: number;
+        username: string;
+        email: string;
+        role: string;
+        iat: number;
+        exp: number;
+      };
+
+      // 计算剩余有效时间
+      const now = Math.floor(Date.now() / 1000);
+      const expiresIn = decoded.exp - now;
+
+      res.status(200).json({
+        code: 200,
+        message: 'Token is valid',
+        data: {
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role,
+          issuedAt: new Date(decoded.iat * 1000).toISOString(),
+          expiresAt: new Date(decoded.exp * 1000).toISOString(),
+          expiresIn: expiresIn > 0 ? expiresIn : 0,
+          isExpired: expiresIn <= 0
+        }
+      });
+    } catch (error: any) {
+      // 判断错误类型
+      if (error.name === 'TokenExpiredError') {
+        res.status(401).json({
+          code: 401,
+          message: 'Token has expired',
+          data: {
+            isExpired: true,
+            expiredAt: error.expiredAt
+          }
+        });
+      } else if (error.name === 'JsonWebTokenError') {
+        res.status(401).json({
+          code: 401,
+          message: 'Invalid token format',
+          data: null
+        });
+      } else {
+        res.status(401).json({
+          code: 401,
+          message: 'Invalid or expired token',
+          data: null
+        });
+      }
+    }
+  }
 
 }
 

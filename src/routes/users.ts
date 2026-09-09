@@ -1,8 +1,19 @@
 import express from 'express';
 import pool from '../config/database';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/authMiddleware';
 
 const router = express.Router();
+
+const PRIVATE_USER_FIELDS = 'id, username, email, role, avatar, bio, github_url, qq_number, tech_stack, visited_provinces, created_at';
+const PUBLIC_USER_FIELDS = 'id, username, role, avatar, bio, github_url, tech_stack, visited_provinces, created_at';
+
+const canViewPrivateProfile = (requestUser: any, targetUserId: number): boolean => {
+  if (!requestUser) {
+    return false;
+  }
+
+  return requestUser.role === 'admin' || Number(requestUser.id) === targetUserId;
+};
 
 /**
  * 用户路由
@@ -29,9 +40,11 @@ router.get('/users/count', async (req, res) => {
 });
 
 // 获取所有用户
-router.get('/users', async (req, res) => {
+router.get('/users', optionalAuthMiddleware, async (req: any, res) => {
   try {
-    const [rows] = await pool.query('SELECT id, username, email, role, avatar, bio, github_url, qq_number, tech_stack, visited_provinces, created_at FROM users') as any[];
+    const isAdmin = req.user?.role === 'admin';
+    const fields = isAdmin ? PRIVATE_USER_FIELDS : PUBLIC_USER_FIELDS;
+    const [rows] = await pool.query(`SELECT ${fields} FROM users`) as any[];
     res.json({
       code: 200,
       message: 'Success',
@@ -48,10 +61,12 @@ router.get('/users', async (req, res) => {
 });
 
 // 获取单个用户
-router.get('/users/:id', async (req, res) => {
+router.get('/users/:id', optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await pool.query('SELECT id, username, email, role, avatar, bio, github_url, qq_number, tech_stack, visited_provinces, created_at FROM users WHERE id = ?', [id]) as any[];
+    const userId = Number(id);
+    const fields = canViewPrivateProfile(req.user, userId) ? PRIVATE_USER_FIELDS : PUBLIC_USER_FIELDS;
+    const [rows] = await pool.query(`SELECT ${fields} FROM users WHERE id = ?`, [id]) as any[];
     if (rows.length === 0) {
       return res.status(404).json({
         code: 404,

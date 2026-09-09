@@ -14,6 +14,9 @@ router.post('/register', authController.register);
 // 用户登录
 router.post('/login', authController.login);
 
+// 验证Token
+router.get('/verify', authController.verifyToken);
+
 
 
 export default router;

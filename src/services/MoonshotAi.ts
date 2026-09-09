@@ -8,7 +8,7 @@ import axios from 'axios';
 
 // Moonshot AI API配置
 const MOONSHOT_API_URL = 'https://api.moonshot.cn/v1/chat/completions';
-const MOONSHOT_API_KEY = process.env.MOONSHOT_API_KEY || 'sk-jTfaVw7ho1zczRC9ppphM6SGJzMDDjIQt2mjywWFgYSyEY0P';
+const MOONSHOT_API_KEY = process.env.MOONSHOT_API_KEY;
 const MOONSHOT_MODEL = 'moonshot-v1-8k';
 
 // 请求限流配置
@@ -43,6 +43,10 @@ export class AIService {
     maxTokens: number = 1000,
     temperature: number = 0.7
   ): Promise<string> {
+    if (!MOONSHOT_API_KEY) {
+      throw new Error('MOONSHOT_API_KEY is not configured');
+    }
+
     // 限流保护：确保请求间隔
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;

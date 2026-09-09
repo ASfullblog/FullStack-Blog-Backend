@@ -1,0 +1,150 @@
+mysql> use users;
+1049 - Unknown database 'users'
+mysql> use fullstack_blog
+    -> ;
+Database changed
+mysql> use users;
+1049 - Unknown database 'users'
+mysql> ALTER TABLE users ADD COLUMN IF NOT EXISTS games_data JSON NULL COMMENT '用户各游戏数据（停车闯关等）' AFTER visited_provinces;
+1064 - You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'IF NOT EXISTS games_data JSON NULL COMMENT '用户各游戏数据（停车闯关' at line 1
+mysql> -- ================================
+-- 闯关挪车游戏数据库变更 (MySQL 5.7 兼容版)
+-- 不影响现有数据
+-- ================================
+
+-- 1. 在 users 表新增字段：games_data（JSON 类型），存储当前登录用户各游戏数据
+ALTER TABLE users ADD COLUMN games_data JSON NULL COMMENT '用户各游戏数据（停车闯关等）' AFTER visited_provinces;
+
+-- 2. 创建 game_levels 表（关卡数据）
+CREATE TABLE IF NOT EXISTS game_levels (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    level_number INT UNSIGNED NOT NULL COMMENT '关卡编号',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式: classic, evacuation',
+    difficulty VARCHAR(20) NOT NULL COMMENT '难度: easy, normal, medium, hard',
+    grid_size INT UNSIGNED NOT NULL COMMENT '网格大小',
+    exit_row INT UNSIGNED NOT NULL COMMENT '出口所在行',
+    board_data JSON NOT NULL COMMENT '关卡布局JSON（车辆位置、方向、类型等）',
+    min_steps INT UNSIGNED NOT NULL COMMENT '求解算法得出的最少步数（三星基准）',
+    evacuation_config JSON NULL COMMENT '疏散模式配置（车辆速度、车型种类等）',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_level_number (level_number),
+    INDEX idx_mode (mode),
+    INDEX idx_difficulty (difficulty),
+    UNIQUE KEY uk_level_mode (level_number, mode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='游戏关卡表';
+
+-- 3. 创建 user_level_records 表（用户通关记录）
+CREATE TABLE IF NOT EXISTS user_level_records (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL COMMENT '用户ID',
+    level_id INT UNSIGNED NOT NULL COMMENT '关卡ID',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式',
+    steps INT UNSIGNED NOT NULL COMMENT '通关使用步数',
+    stars TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '获得星星数(1-3)',
+    hint_used TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否使用提示',
+    time_seconds INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '通关用时(秒)',
+    completed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '完成时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_level_id (level_id),
+    UNIQUE KEY uk_user_level (user_id, level_id),
+    CONSTRAINT fk_record_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_record_level FOREIGN KEY (level_id) REFERENCES game_levels(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关卡通关记录表';
+1060 - Duplicate column name 'games_data'
+Query OK, 0 rows affected (0.01 sec)
+
+Query OK, 0 rows affected (0.01 sec)
+mysql> -- ================================
+-- 闯关挪车游戏数据库变更 (MySQL 5.7 兼容版)
+-- 不影响现有数据
+-- ================================
+
+-- 1. 在 users 表新增字段：games_data（JSON 类型），存储当前登录用户各游戏数据
+ALTER TABLE users ADD COLUMN games_data JSON NULL COMMENT '用户各游戏数据（停车闯关等）' AFTER visited_provinces;
+
+-- 2. 创建 game_levels 表（关卡数据）
+CREATE TABLE IF NOT EXISTS game_levels (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    level_number INT UNSIGNED NOT NULL COMMENT '关卡编号',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式: classic, evacuation',
+    difficulty VARCHAR(20) NOT NULL COMMENT '难度: easy, normal, medium, hard',
+    grid_size INT UNSIGNED NOT NULL COMMENT '网格大小',
+    exit_row INT UNSIGNED NOT NULL COMMENT '出口所在行',
+    board_data JSON NOT NULL COMMENT '关卡布局JSON（车辆位置、方向、类型等）',
+    min_steps INT UNSIGNED NOT NULL COMMENT '求解算法得出的最少步数（三星基准）',
+    evacuation_config JSON NULL COMMENT '疏散模式配置（车辆速度、车型种类等）',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_level_number (level_number),
+    INDEX idx_mode (mode),
+    INDEX idx_difficulty (difficulty),
+    UNIQUE KEY uk_level_mode (level_number, mode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='游戏关卡表';
+
+-- 3. 创建 user_level_records 表（用户通关记录）
+CREATE TABLE IF NOT EXISTS user_level_records (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL COMMENT '用户ID',
+    level_id INT UNSIGNED NOT NULL COMMENT '关卡ID',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式',
+    steps INT UNSIGNED NOT NULL COMMENT '通关使用步数',
+    stars TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '获得星星数(1-3)',
+    hint_used TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否使用提示',
+    time_seconds INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '通关用时(秒)',
+    completed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '完成时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_level_id (level_id),
+    UNIQUE KEY uk_user_level (user_id, level_id),
+    CONSTRAINT fk_record_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_record_level FOREIGN KEY (level_id) REFERENCES game_levels(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关卡通关记录表';
+1060 - Duplicate column name 'games_data'
+Query OK, 0 rows affected (0.00 sec)
+
+Query OK, 0 rows affected (0.00 sec)
+mysql> -- ================================
+-- 闯关挪车游戏数据库变更 (MySQL 5.7 兼容版)
+-- 不影响现有数据
+-- ================================
+
+-- 1. 跳过已在 users 表存在的 games_data 字段
+-- 如需确认字段是否存在，可执行：
+-- SHOW COLUMNS FROM users LIKE 'games_data';
+
+-- 2. 创建 game_levels 表（关卡数据）
+CREATE TABLE IF NOT EXISTS game_levels (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    level_number INT UNSIGNED NOT NULL COMMENT '关卡编号',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式: classic, evacuation',
+    difficulty VARCHAR(20) NOT NULL COMMENT '难度: easy, normal, medium, hard',
+    grid_size INT UNSIGNED NOT NULL COMMENT '网格大小',
+    exit_row INT UNSIGNED NOT NULL COMMENT '出口所在行',
+    board_data JSON NOT NULL COMMENT '关卡布局JSON（车辆位置、方向、类型等）',
+    min_steps INT UNSIGNED NOT NULL COMMENT '求解算法得出的最少步数（三星基准）',
+    evacuation_config JSON NULL COMMENT '疏散模式配置（车辆速度、车型种类等）',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_level_number (level_number),
+    INDEX idx_mode (mode),
+    INDEX idx_difficulty (difficulty),
+    UNIQUE KEY uk_level_mode (level_number, mode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='游戏关卡表';
+
+-- 3. 创建 user_level_records 表（用户通关记录）
+CREATE TABLE IF NOT EXISTS user_level_records (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL COMMENT '用户ID',
+    level_id INT UNSIGNED NOT NULL COMMENT '关卡ID',
+    mode VARCHAR(20) NOT NULL DEFAULT 'classic' COMMENT '模式',
+    steps INT UNSIGNED NOT NULL COMMENT '通关使用步数',
+    stars TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '获得星星数(1-3)',
+    hint_used TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否使用提示',
+    time_seconds INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '通关用时(秒)',
+    completed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '完成时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_level_id (level_id),
+    UNIQUE KEY uk_user_level (user_id, level_id),
+    CONSTRAINT fk_record_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_record_level FOREIGN KEY (level_id) REFERENCES game_levels(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关卡通关记录表';
+Query OK, 0 rows affected (0.01 sec)
+Query OK, 0 rows affected (0.00 sec)
+mysql> 

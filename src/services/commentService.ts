@@ -1,7 +1,7 @@
 import pool from '../config/database';
-import { sendEmail, sendHtmlEmail } from '../utils/email';
+import { sendHtmlEmail } from '../utils/email';
 import { notificationService } from './notificationService';
-import { validateComment, sanitizeComment, detectXSS } from '../utils/security';
+import { validateComment, sanitizeComment } from '../utils/security';
 
 /**
  * 评论服务

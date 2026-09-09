@@ -13,7 +13,10 @@ import uploadRoutes from './routes/upload';
 import quotesRoutes from './routes/quotes';
 import aiRoutes from './routes/ai';
 import notificationRoutes from './routes/notifications';
-import logger from './utils/logger';
+import parkingRushRoutes from './routes/parkingRush';
+import gameRoutes from './routes/gameRoutes';
+import adminGameRoutes from './routes/adminGames';
+import gameLevelConfigRoutes from './routes/gameLevelConfigs';
 
 dotenv.config();
 
@@ -69,6 +72,10 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/quotes', quotesRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api/parking-rush', parkingRushRoutes);
+app.use('/api/games', gameRoutes);
+app.use('/api', adminGameRoutes);
+app.use('/api', gameLevelConfigRoutes);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err.stack);
@@ -87,8 +94,10 @@ app.use('*', (_req: express.Request, res: express.Response) => {
   });
 });
 
-app.listen(PORT, () => {
-  // Server started successfully
-});
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Backend listening on port ${PORT}`);
+  });
+}
 
 export default app;
