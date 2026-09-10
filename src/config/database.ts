@@ -1,39 +1,127 @@
-import mysql from 'mysql2/promise';
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const ssl = process.env.DB_SSL === 'true'
-  ? { rejectUnauthorized: false }
-  : undefined;
+type QueryResult = {
+  insertId?: number;
+  affectedRows: number;
+  rowCount: number;
+};
 
-const connectionOptions = process.env.DATABASE_URL
-  ? (() => {
-      const url = new URL(process.env.DATABASE_URL);
-      return {
-        host: url.hostname,
-        port: parseInt(url.port || '3306'),
-        user: decodeURIComponent(url.username),
-        password: decodeURIComponent(url.password),
-        database: decodeURIComponent(url.pathname.replace(/^\//, '')),
-        ssl,
-        waitForConnections: true,
-        connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '5'),
-        queueLimit: 0
-      };
-    })()
-  : {
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '3306'),
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'fullstack_blog',
-      ssl,
-      waitForConnections: true,
-      connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
-      queueLimit: 0
+type QueryResponse = [any[], QueryResult];
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl || !databaseUrl.startsWith('postgres')) {
+  throw new Error(
+    'DATABASE_URL must be a PostgreSQL/Neon connection string. Configure it in the environment before starting the backend.'
+  );
+}
+
+const sql = neon(databaseUrl, { fullResults: true });
+
+const replacePlaceholders = (query: string, params: any[]): string => {
+  let parameterIndex = 0;
+  let result = '';
+  let quote: string | null = null;
+
+  for (let index = 0; index < query.length; index += 1) {
+    const character = query[index];
+
+    if (quote) {
+      result += character;
+      if (character === quote && query[index - 1] !== '\\') {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '\'' || character === '"') {
+      quote = character;
+      result += character;
+      continue;
+    }
+
+    if (character === '?' && parameterIndex < params.length) {
+      parameterIndex += 1;
+      result += `$${parameterIndex}`;
+      continue;
+    }
+
+    result += character;
+  }
+
+  return result;
+};
+
+const appendReturningId = (query: string): string => {
+  if (!/^\s*insert\s+into/i.test(query) || /\breturning\b/i.test(query)) {
+    return query;
+  }
+
+  const tableMatch = query.match(/^\s*insert\s+into\s+([a-z_]+)/i);
+  const tablesWithIds = new Set([
+    'users',
+    'categories',
+    'tags',
+    'posts',
+    'comments',
+    'notifications',
+    'games',
+    'game_favorites',
+    'game_ratings',
+    'game_levels',
+    'user_level_records',
+    'game_stage_configs',
+    'sensitive_words',
+    'sensitive_word_whitelist',
+    'sensitive_word_logs'
+  ]);
+
+  if (!tableMatch || !tablesWithIds.has(tableMatch[1].toLowerCase())) {
+    return query;
+  }
+
+  return `${query.trim()}\nRETURNING id`;
+};
+
+const normalizeQuery = (query: string, params: any[]): string => {
+  const normalized = replacePlaceholders(query, params);
+  return appendReturningId(normalized);
+};
+
+const query = async (queryText: string, params: any[] = []): Promise<QueryResponse> => {
+  const normalized = normalizeQuery(queryText, params);
+  const response = await sql.query(normalized, params);
+  const rows = response.rows as any[];
+  const result: QueryResult = {
+    affectedRows: response.rowCount,
+    rowCount: response.rowCount
+  };
+
+  if (response.command === 'INSERT' && rows.length > 0 && rows[0]?.id !== undefined) {
+    result.insertId = Number(rows[0].id);
+  }
+
+  if (response.command === 'SELECT' || response.command === 'SHOW' || response.command === 'WITH') {
+    return [rows as any[], result];
+  }
+
+  return [result as any, result];
+};
+
+const pool = {
+  query,
+  async getConnection() {
+    return {
+      query,
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {}
     };
-
-const pool = mysql.createPool(connectionOptions);
+  }
+};
 
 export default pool;

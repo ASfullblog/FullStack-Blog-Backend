@@ -153,20 +153,20 @@ const buildLinkMatchLevelConfig = (
 const ensureTable = async (): Promise<void> => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS game_stage_configs (
-      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      id SERIAL PRIMARY KEY,
       game_slug VARCHAR(100) NOT NULL,
-      level_number INT UNSIGNED NOT NULL,
+      level_number INTEGER NOT NULL,
       difficulty VARCHAR(32) NOT NULL,
       mode VARCHAR(32) NOT NULL,
-      config_data JSON NOT NULL,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uk_game_level_difficulty_mode (game_slug, level_number, difficulty, mode),
-      KEY idx_game_slug (game_slug),
-      KEY idx_game_active (game_slug, is_active)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      config_data JSONB NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT uk_game_level_difficulty_mode UNIQUE (game_slug, level_number, difficulty, mode)
+    )
   `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_game_slug ON game_stage_configs (game_slug)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_game_active ON game_stage_configs (game_slug, is_active)');
 };
 
 const getLinkMatchLevelConfig = async (
@@ -200,7 +200,8 @@ const getLinkMatchLevelConfig = async (
   await pool.query(
     `INSERT INTO game_stage_configs (game_slug, level_number, difficulty, mode, config_data, is_active)
      VALUES (?, ?, ?, ?, ?, 1)
-     ON DUPLICATE KEY UPDATE config_data = VALUES(config_data), is_active = 1`,
+     ON CONFLICT (game_slug, level_number, difficulty, mode)
+     DO UPDATE SET config_data = EXCLUDED.config_data, is_active = 1, updated_at = CURRENT_TIMESTAMP`,
     ['link-match', levelNumber, resolvedDifficulty, resolvedMode, JSON.stringify(generatedConfig)]
   );
 

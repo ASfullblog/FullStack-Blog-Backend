@@ -514,8 +514,6 @@ const getDifficultyByLevel = (level: number): Difficulty => {
 const preGenerateLevels = async (count: number = 1000): Promise<void> => {
   const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
     for (let level = 1; level <= count; level++) {
       const difficulty = getDifficultyByLevel(level);
       const { boardData, minSteps } = generateClassicLevel(difficulty);
@@ -523,20 +521,18 @@ const preGenerateLevels = async (count: number = 1000): Promise<void> => {
       await connection.query(
         `INSERT INTO game_levels (level_number, mode, difficulty, grid_size, exit_row, board_data, min_steps)
          VALUES (?, 'classic', ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           difficulty = VALUES(difficulty),
-           grid_size = VALUES(grid_size),
-           exit_row = VALUES(exit_row),
-           board_data = VALUES(board_data),
-           min_steps = VALUES(min_steps)`,
+         ON CONFLICT (level_number, mode, difficulty)
+         DO UPDATE SET
+           grid_size = EXCLUDED.grid_size,
+           exit_row = EXCLUDED.exit_row,
+           board_data = EXCLUDED.board_data,
+           min_steps = EXCLUDED.min_steps`,
         [level, difficulty, boardData.gridSize, boardData.exitRow, JSON.stringify(boardData), minSteps]
       );
     }
 
-    await connection.commit();
     console.log(`[ParkingRush] 预生成 ${count} 关完成`);
   } catch (error) {
-    await connection.rollback();
     console.error('[ParkingRush] 预生成关卡失败:', error);
     throw error;
   } finally {
@@ -596,7 +592,13 @@ const getLevelData = async (levelNumber: number, mode: string = 'classic', diffi
   // 非重新生成模式，保存到数据库
   const [result] = await pool.query(
     `INSERT INTO game_levels (level_number, mode, difficulty, grid_size, exit_row, board_data, min_steps)
-     VALUES (?, 'classic', ?, ?, ?, ?, ?)`,
+     VALUES (?, 'classic', ?, ?, ?, ?, ?)
+     ON CONFLICT (level_number, mode, difficulty)
+     DO UPDATE SET
+       grid_size = EXCLUDED.grid_size,
+       exit_row = EXCLUDED.exit_row,
+       board_data = EXCLUDED.board_data,
+       min_steps = EXCLUDED.min_steps`,
     [levelNumber, effectiveDifficulty, boardData.gridSize, boardData.exitRow, JSON.stringify(boardData), minSteps]
   ) as any[];
 
@@ -694,12 +696,13 @@ const submitResult = async (userId: number, data: SubmitResult): Promise<{
   await pool.query(
     `INSERT INTO user_level_records (user_id, level_id, mode, steps, stars, hint_used, time_seconds)
      VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       steps = IF(steps > VALUES(steps), VALUES(steps), steps),
-       stars = IF(stars > VALUES(stars), VALUES(stars), stars),
-       hint_used = VALUES(hint_used),
-       time_seconds = VALUES(time_seconds),
-       completed_at = NOW()`,
+     ON CONFLICT (user_id, level_id)
+     DO UPDATE SET
+       steps = LEAST(user_level_records.steps, EXCLUDED.steps),
+       stars = GREATEST(user_level_records.stars, EXCLUDED.stars),
+       hint_used = EXCLUDED.hint_used,
+       time_seconds = EXCLUDED.time_seconds,
+       completed_at = CURRENT_TIMESTAMP`,
     [userId, data.levelId, data.mode, data.steps, stars, data.hintUsed ? 1 : 0, data.timeSeconds]
   );
 
@@ -712,7 +715,7 @@ const submitResult = async (userId: number, data: SubmitResult): Promise<{
   };
 
   await pool.query(
-    'UPDATE users SET games_data = JSON_MERGE_PATCH(COALESCE(games_data, \'{}\'), ?) WHERE id = ?',
+    'UPDATE users SET games_data = COALESCE(games_data, \'{}\'::jsonb) || ?::jsonb WHERE id = ?',
     [JSON.stringify(gamesData), userId]
   );
 

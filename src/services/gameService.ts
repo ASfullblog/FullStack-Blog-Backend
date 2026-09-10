@@ -151,7 +151,7 @@ const saveUserGameData = async (
   };
 
   await pool.query(
-    'UPDATE users SET games_data = JSON_MERGE_PATCH(COALESCE(games_data, \'{}\'), ?) WHERE id = ?',
+    'UPDATE users SET games_data = COALESCE(games_data, \'{}\'::jsonb) || ?::jsonb WHERE id = ?',
     [JSON.stringify(updateData), userId]
   );
 

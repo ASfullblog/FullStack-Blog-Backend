@@ -67,8 +67,8 @@ router.put('/settings', authMiddleware, async (req, res) => {
     // 批量更新设置
     for (const [key, value] of Object.entries(settings)) {
       await pool.query(
-        'INSERT INTO sys_config (config_key, config_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_value = ?',
-        [key, value, value]
+        'INSERT INTO sys_config (config_key, config_value) VALUES (?, ?) ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value',
+        [key, value]
       );
     }
     
@@ -94,8 +94,8 @@ router.put('/settings/:key', authMiddleware, async (req, res) => {
     const { value } = req.body;
     
     await pool.query(
-      'INSERT INTO sys_config (config_key, config_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_value = ?',
-      [key, value, value]
+      'INSERT INTO sys_config (config_key, config_value) VALUES (?, ?) ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value',
+      [key, value]
     );
     
     res.json({
