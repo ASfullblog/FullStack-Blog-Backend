@@ -65,6 +65,15 @@ export class AuthService {
       throw new Error('Invalid username or password');
     }
 
+    // 禁用拦截：必须在密码校验通过之后才检查 status，避免向未通过密码的人泄露"该账号存在且已被禁用"
+    // status 为 NULL 的老数据视为 active（等价于 SQL 的 COALESCE(status,'active') <> 'disabled'），不把存量用户/管理员锁在门外
+    if ((user.status ?? 'active') === 'disabled') {
+      throw new Error('账号已被禁用，请联系管理员');
+    }
+
+    // 记录最近活跃时间：fire-and-forget，不进登录关键路径（Neon HTTP 驱动一次往返几百毫秒），失败静默
+    pool.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]).catch(() => {});
+
     // 生成JWT token
     const secret = process.env.JWT_SECRET || 'your-secret-key';
     const token = jwt.sign(

@@ -17,6 +17,8 @@ import parkingRushRoutes from './routes/parkingRush';
 import gameRoutes from './routes/gameRoutes';
 import adminGameRoutes from './routes/adminGames';
 import gameLevelConfigRoutes from './routes/gameLevelConfigs';
+import statsRoutes from './routes/stats';
+import visitTracker, { ensureVisitSchema } from './middleware/visitTracker';
 
 dotenv.config();
 
@@ -62,6 +64,13 @@ app.get('/', (_req: express.Request, res: express.Response) => {
   });
 });
 
+// 访问采集中间件：注册在所有业务路由之前
+// 只在 res 'finish' 后异步落库，不 await、不阻塞、不影响业务响应
+app.use(visitTracker);
+
+// 访问统计聚合接口（须在 app.use('/api', ...) 这类通配挂载之前，避免被吞掉）
+app.use('/api/stats', statsRoutes);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api', categoryRoutes);
@@ -95,8 +104,15 @@ app.use('*', (_req: express.Request, res: express.Response) => {
 });
 
 if (process.env.VERCEL !== '1') {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`Backend listening on port ${PORT}`);
+    // 幂等建表（visit_logs / ip_cache）：内部已逐条 try-catch，失败静默，绝不阻断启动
+    try {
+      await ensureVisitSchema();
+      console.log('[visitTracker] visit_logs / ip_cache 就绪');
+    } catch (e: any) {
+      console.warn('[visitTracker] 建表跳过（不影响服务）:', e?.message || e);
+    }
   });
 }
 

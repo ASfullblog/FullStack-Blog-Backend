@@ -152,6 +152,20 @@ export class NotificationService {
   }
 
   /**
+   * 清空当前用户的全部通知
+   * @param userId 用户ID
+   * @returns 删除的通知数量
+   */
+  async clearAllNotifications(userId: number): Promise<number> {
+    const [result] = await pool.query(
+      'DELETE FROM notifications WHERE user_id = ?',
+      [userId]
+    ) as any[];
+
+    return result.affectedRows;
+  }
+
+  /**
    * 创建评论审核通知
    * @param userId 评论作者ID
    * @param commentId 评论ID

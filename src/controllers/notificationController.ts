@@ -203,6 +203,40 @@ export class NotificationController {
   }
 
   /**
+   * 清空当前用户的全部通知
+   * @param req 请求对象
+   * @param res 响应对象
+   */
+  async clearAllNotifications(req: any, res: express.Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          code: 401,
+          message: '请先登录',
+          data: null
+        });
+        return;
+      }
+
+      const deleted = await notificationService.clearAllNotifications(userId);
+
+      res.status(200).json({
+        code: 200,
+        message: `已清空 ${deleted} 条通知`,
+        data: { deleted }
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        code: 500,
+        message: error.message || '清空通知失败',
+        data: null
+      });
+    }
+  }
+
+  /**
    * 创建系统公告（管理员）
    * @param req 请求对象
    * @param res 响应对象

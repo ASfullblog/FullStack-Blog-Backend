@@ -21,6 +21,10 @@ router.put('/notifications/:id/read', authMiddleware, notificationController.mar
 // 标记所有通知为已读
 router.put('/notifications/read-all', authMiddleware, notificationController.markAllAsRead);
 
+// 清空当前用户的全部通知
+// 注意：必须注册在 DELETE /notifications/:id 之前，否则 'all' 会被当成 :id 参数
+router.delete('/notifications/all', authMiddleware, notificationController.clearAllNotifications);
+
 // 删除通知
 router.delete('/notifications/:id', authMiddleware, notificationController.deleteNotification);
 
