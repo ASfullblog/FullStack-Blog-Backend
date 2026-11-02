@@ -18,6 +18,7 @@ import gameRoutes from './routes/gameRoutes';
 import adminGameRoutes from './routes/adminGames';
 import gameLevelConfigRoutes from './routes/gameLevelConfigs';
 import statsRoutes from './routes/stats';
+import weatherRoutes from './routes/weather';
 import visitTracker, { ensureVisitSchema } from './middleware/visitTracker';
 
 dotenv.config();
@@ -70,6 +71,9 @@ app.use(visitTracker);
 
 // 访问统计聚合接口（须在 app.use('/api', ...) 这类通配挂载之前，避免被吞掉）
 app.use('/api/stats', statsRoutes);
+
+// 天气实景主题：按访问者 IP 定位的实时天气
+app.use('/api/weather', weatherRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
