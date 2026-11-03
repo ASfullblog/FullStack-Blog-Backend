@@ -168,6 +168,39 @@ export class AuthController {
     }
   }
 
+  /**
+   * 重置密码：用户名 + 注册邮箱校验通过后直接改密码（不发邮件、不发短信）
+   * @param req 请求对象
+   * @param res 响应对象
+   */
+  async resetPassword(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { username, email, newPassword } = req.body || {};
+
+      if (!username || !email || !newPassword) {
+        res.status(400).json({
+          code: 400,
+          message: 'Username, email and newPassword are required',
+          data: null
+        });
+        return;
+      }
+
+      await authService.resetPassword(username, email, newPassword);
+
+      res.status(200).json({
+        code: 200,
+        message: 'Password reset successfully',
+        data: null
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        code: 400,
+        message: error.message || 'Reset password failed',
+        data: null
+      });
+    }
+  }
 }
 
 export const authController = new AuthController();

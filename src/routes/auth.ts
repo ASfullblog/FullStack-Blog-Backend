@@ -14,6 +14,9 @@ router.post('/register', authController.register);
 // 用户登录
 router.post('/login', authController.login);
 
+// 重置密码（用户名 + 注册邮箱，直接改密码）
+router.post('/reset-password', authController.resetPassword);
+
 // 验证Token
 router.get('/verify', authController.verifyToken);
 

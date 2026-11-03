@@ -103,6 +103,44 @@ export class AuthService {
     };
   }
 
+  /**
+   * 重置密码（账号内自助重置，不依赖邮件/短信）
+   * 用「用户名 + 注册邮箱」两项同时匹配来确认身份，再写入新密码。
+   * @param username 用户名
+   * @param email 注册邮箱
+   * @param newPassword 新密码
+   */
+  async resetPassword(username: string, email: string, newPassword: string): Promise<void> {
+    const name = String(username || '').trim();
+    const mail = String(email || '').trim().toLowerCase();
+    const pwd = String(newPassword || '');
+
+    if (!name || !mail) {
+      throw new Error('用户名和注册邮箱不能为空');
+    }
+    if (pwd.length < 6) {
+      throw new Error('新密码至少 6 位');
+    }
+
+    // 用户名与邮箱必须同时匹配，任一不符都不提示是哪一项错了，避免被枚举账号
+    const [users] = await pool.query(
+      'SELECT id, status FROM users WHERE username = ? AND LOWER(email) = ? LIMIT 1',
+      [name, mail]
+    ) as any[];
+
+    if (users.length === 0) {
+      throw new Error('用户名与该邮箱不匹配');
+    }
+
+    const user = users[0];
+
+    if ((user.status ?? 'active') === 'disabled') {
+      throw new Error('账号已被禁用，请联系管理员');
+    }
+
+    const passwordHash = await bcrypt.hash(pwd, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id]);
+  }
 
 }
 
