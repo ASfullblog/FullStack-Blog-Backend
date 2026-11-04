@@ -72,19 +72,49 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// 从分类名生成 slug：英文/数字原样小写化、空格转连字符；纯中文无 pinyin 依赖时退化为 category-序号
+async function generateCategorySlug(name: string): Promise<string> {
+  const trimmed = (name || '').trim();
+  // 含英文/数字：转小写、非字母数字转连字符、去首尾连字符
+  if (/[a-zA-Z0-9]/.test(trimmed)) {
+    const base = trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (base) return base;
+  }
+  // 纯中文等无法生成的情况：用 category-N 序号兜底
+  const [rows] = await postService.pool.query('SELECT COUNT(*) AS c FROM categories') as any[];
+  return `category-${Number(rows[0].c) + 1}`;
+}
+
+// 确保 slug 唯一：冲突时追加 -2、-3 …
+async function uniqueCategorySlug(base: string, excludeId?: number): Promise<string> {
+  let slug = base;
+  let i = 2;
+  while (true) {
+    const [rows] = await postService.pool.query(
+      'SELECT id FROM categories WHERE slug = ?' + (excludeId ? ' AND id != ?' : ''),
+      excludeId ? [slug, excludeId] : [slug]
+    ) as any[];
+    if (rows.length === 0) return slug;
+    slug = `${base}-${i++}`;
+  }
+}
+
 // 创建分类
 router.post('/categories', async (req, res) => {
   try {
-    const { name, slug, parentId } = req.body;
-    if (!name || !slug) {
+    const { name, parentId } = req.body;
+    if (!name) {
       return res.status(400).json({
         code: 400,
-        message: 'Name and slug are required',
+        message: 'Name is required',
         data: null
       });
     }
     
-    // 简单的分类创建逻辑
+    const slug = await uniqueCategorySlug(await generateCategorySlug(name));
     const [result] = await postService.pool.query(
       'INSERT INTO categories (name, slug, parent_id) VALUES (?, ?, ?)',
       [name, slug, parentId || null]
@@ -115,16 +145,17 @@ router.post('/categories', async (req, res) => {
 router.put('/categories/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, slug, parentId } = req.body;
+    const { name, parentId } = req.body;
     
-    if (!name || !slug) {
+    if (!name) {
       return res.status(400).json({
         code: 400,
-        message: 'Name and slug are required',
+        message: 'Name is required',
         data: null
       });
     }
     
+    const slug = await uniqueCategorySlug(await generateCategorySlug(name), Number(id));
     await postService.pool.query(
       'UPDATE categories SET name = ?, slug = ?, parent_id = ? WHERE id = ?',
       [name, slug, parentId || null, id]
